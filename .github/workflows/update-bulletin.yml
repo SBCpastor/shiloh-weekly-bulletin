@@ -1,0 +1,69 @@
+name: Update weekly bulletin from Google Drive
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-bulletin-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out bulletin website
+        uses: actions/checkout@v4
+      - name: Install PDF tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+          python -m pip install --quiet 'gdown>=5,<6' 'Pillow>=10,<12' 'img2pdf>=0.5,<0.7'
+      - name: Download public PDF from Google Drive
+        run: |
+          python - <<'PY'
+          import gdown
+          url='https://drive.google.com/uc?id=1WwuOBV4pHa5ZOVlt1ZNw-MX2Tru-3ACa'
+          output=gdown.download(url,'/tmp/source-bulletin.pdf',quiet=False,fuzzy=True)
+          if not output:
+              raise SystemExit('Download failed. Check Google Drive file sharing: Anyone with the link can view.')
+          PY
+          pdfinfo /tmp/source-bulletin.pdf | head -20
+      - name: Convert PDF to web booklet
+        run: |
+          python - <<'PY'
+          import glob,os,subprocess,json,datetime
+          from PIL import Image
+          import img2pdf
+          source='/tmp/source-bulletin.pdf'
+          subprocess.run(['pdftoppm','-r','115','-jpeg','-jpegopt','quality=80,optimize=y',source,'/tmp/shilohpage'],check=True)
+          paths=sorted(glob.glob('/tmp/shilohpage-*.jpg'), key=lambda p:int(os.path.splitext(p)[0].rsplit('-',1)[-1]))
+          if not paths: raise SystemExit('No pages rendered')
+          if len(paths)>100: raise SystemExit('Unexpected number of pages; stopped for review')
+          for old in glob.glob('page-*.jpg'): os.remove(old)
+          for i,p in enumerate(paths,1):
+              with Image.open(p) as im:
+                  im.convert('RGB').save(f'page-{i}.jpg','JPEG',quality=78,optimize=True,progressive=True)
+          pages=[f'page-{i}.jpg' for i in range(1,len(paths)+1)]
+          with open('bulletin.pdf','wb') as f:
+              f.write(img2pdf.convert(pages))
+          version=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+          with open('manifest.json','w') as f:
+              json.dump({'pages':pages,'version':version},f,indent=2)
+          print('Published',len(pages),'pages; optimized PDF',round(os.path.getsize('bulletin.pdf')/1048576,2),'MB')
+          PY
+      - name: Publish updated pages and PDF
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A -- 'page-*.jpg' bulletin.pdf manifest.json
+          if git diff --cached --quiet; then
+            echo 'No changes to publish'
+          else
+            git commit -m 'Update weekly bulletin'
+            git push
+          fi
+  
