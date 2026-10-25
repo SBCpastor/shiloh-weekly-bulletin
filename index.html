@@ -1,37 +1,274 @@
+
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Shiloh Baptist Church | Weekly Bulletin</title>
-<style>
-:root{font-family:Arial,Helvetica,sans-serif;color:#162943;background:#ffffff}</style></head><body><main>
-<header class="heading"><h1>Shiloh Baptist Church</h1><p>Weekly Worship Bulletin</p></header>
-<div class="viewer" id="viewer"><div id="book"></div></div>
-<div class="fallback" id="fallback">The interactive booklet could not load. <a href="page-1.jpg" target="_blank" rel="noopener">Open the bulletin cover</a>.</div>
-<nav class="controls" aria-label="Bulletin navigation"><button id="prev" type="button">← Previous</button><span id="counter" class="count" aria-live="polite">Cover</span><button id="next" type="button">Next →</button><a class="download" href="bulletin.pdf" target="_blank" rel="noopener">Open / Download PDF ↗</a></nav>
-<p class="notice">Turn pages using the arrows or by clicking the booklet. On phones, pages appear one at a time.</p>
-</main>
-<script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
-<script>
-(function(){
- const images=[];
- const bookNode=document.getElementById('book'),counter=document.getElementById('counter');
- const prev=document.getElementById('prev'),next=document.getElementById('next');
- if(!window.St||!window.St.PageFlip){document.getElementById('fallback').style.display='block';return;}
- const flip=new St.PageFlip(bookNode,{width:540,height:720,size:'stretch',minWidth:250,maxWidth:540,minHeight:334,maxHeight:720,showCover:true,usePortrait:true,mobileScrollSupport:false,autoSize:true,drawShadow:true,flippingTime:650,clickEventForward:true,swipeDistance:25,showPageCorners:true});
- async function load(){
-  try {
-   const response=await fetch('manifest.json?updated='+Date.now(),{cache:'no-store'});
-   if(!response.ok) throw new Error('Could not load manifest');
-   const manifest=await response.json();
-   if(!Array.isArray(manifest.pages)||!manifest.pages.length) throw new Error('No pages');
-   images.push(...manifest.pages.map(p=>p+'?v='+encodeURIComponent(manifest.version||'')));
-   flip.loadFromImages(images);
-  } catch(err){console.error(err);document.getElementById('fallback').style.display='block';}
- }
- load();
- function update(){const i=flip.getCurrentPageIndex();const total=images.length;const portrait=flip.getOrientation()==='portrait';let s=i===0?'Front cover':i===total-1?'Back cover':portrait?'Page '+(i+1):'Pages '+(i+1)+'–'+Math.min(i+2,total);counter.textContent=s;prev.disabled=i===0;next.disabled=i>=total-1;}
- flip.on('flip',update);flip.on('changeOrientation',update);flip.on('init',update);
- prev.addEventListener('click',()=>flip.flipPrev());next.addEventListener('click',()=>flip.flipNext());
- document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')flip.flipNext();if(e.key==='ArrowLeft')flip.flipPrev()});
- setTimeout(update,100);
-})();
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Shiloh Baptist Church | Weekly Bulletin</title>
+
+  <style>
+    :root {
+      font-family: Arial, Helvetica, sans-serif;
+      color: #162943;
+      background: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0;
+    }
+
+    .viewer {
+      width: 100%;
+      min-height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+    }
+
+    .page {
+      background: #ffffff;
+      box-shadow: 0 4px 18px #17263c22;
+    }
+
+    .page img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin: 10px auto;
+      flex-wrap: wrap;
+    }
+
+    button,
+    .download {
+      border: 1px solid #c6d0df;
+      border-radius: 8px;
+      padding: 10px 15px;
+      background: #ffffff;
+      color: #1b3358;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    button:hover,
+    .download:hover {
+      background: #e9eff7;
+    }
+
+    button:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .count {
+      min-width: 100px;
+      text-align: center;
+      font-size: 13px;
+      color: #566276;
+    }
+
+    .notice {
+      font-size: 12px;
+      text-align: center;
+      color: #677486;
+      margin: 6px 0;
+    }
+
+    .fallback {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      background: #ffffff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+
+    .fallback a {
+      color: #173f81;
+    }
+
+    @media (max-width: 560px) {
+      main {
+        padding: 0;
+      }
+
+      .controls {
+        gap: 6px;
+      }
+
+      button,
+      .download {
+        padding: 9px 10px;
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+
+    <div class="viewer" id="viewer">
+      <div id="book"></div>
+    </div>
+
+    <div class="fallback" id="fallback">
+      The interactive booklet could not load.
+      <a href="page-1.jpg" target="_blank" rel="noopener">
+        Open the bulletin cover
+      </a>.
+    </div>
+
+    <nav class="controls" aria-label="Bulletin navigation">
+      <button id="prev" type="button">← Previous</button>
+
+      <span id="counter" class="count" aria-live="polite">
+        Cover
+      </span>
+
+      <button id="next" type="button">Next →</button>
+
+      <a
+        class="download"
+        href="bulletin.pdf"
+        target="_blank"
+        rel="noopener">
+        Open / Download PDF ↗
+      </a>
+    </nav>
+
+    <p class="notice">
+      Turn pages using the arrows or by clicking the booklet.
+      On phones, pages appear one at a time.
+    </p>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+
+  <script>
+    (function () {
+      const images = [];
+
+      const bookNode = document.getElementById('book');
+      const counter = document.getElementById('counter');
+      const prev = document.getElementById('prev');
+      const next = document.getElementById('next');
+
+      if (!window.St || !window.St.PageFlip) {
+        document.getElementById('fallback').style.display = 'block';
+        return;
+      }
+
+      const flip = new St.PageFlip(bookNode, {
+        width: 540,
+        height: 720,
+        size: 'stretch',
+        minWidth: 250,
+        maxWidth: 540,
+        minHeight: 334,
+        maxHeight: 720,
+        showCover: true,
+        usePortrait: true,
+        mobileScrollSupport: false,
+        autoSize: true,
+        drawShadow: true,
+        flippingTime: 650,
+        clickEventForward: true,
+        swipeDistance: 25,
+        showPageCorners: true
+      });
+
+      async function load() {
+        try {
+          const response = await fetch(
+            'manifest.json?updated=' + Date.now(),
+            { cache: 'no-store' }
+          );
+
+          if (!response.ok) {
+            throw new Error('Could not load manifest');
+          }
+
+          const manifest = await response.json();
+
+          if (!Array.isArray(manifest.pages) || !manifest.pages.length) {
+            throw new Error('No pages');
+          }
+
+          images.push(
+            ...manifest.pages.map(
+              p => p + '?v=' + encodeURIComponent(manifest.version || '')
+            )
+          );
+
+          flip.loadFromImages(images);
+
+        } catch (err) {
+          console.error(err);
+          document.getElementById('fallback').style.display = 'block';
+        }
+      }
+
+      load();
+
+      function update() {
+        const i = flip.getCurrentPageIndex();
+        const total = images.length;
+        const portrait = flip.getOrientation() === 'portrait';
+
+        let s =
+          i === 0
+            ? 'Front cover'
+            : i === total - 1
+              ? 'Back cover'
+              : portrait
+                ? 'Page ' + (i + 1)
+                : 'Pages ' + (i + 1) + '–' + Math.min(i + 2, total);
+
+        counter.textContent = s;
+        prev.disabled = i === 0;
+        next.disabled = i >= total - 1;
+      }
+
+      flip.on('flip', update);
+      flip.on('changeOrientation', update);
+      flip.on('init', update);
+
+      prev.addEventListener('click', () => flip.flipPrev());
+      next.addEventListener('click', () => flip.flipNext());
+
+      document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowRight') flip.flipNext();
+        if (e.key === 'ArrowLeft') flip.flipPrev();
+      });
+
+      setTimeout(update, 100);
+    })();
+  </script>
+</body>
+</html>
